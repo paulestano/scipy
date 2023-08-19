@@ -208,6 +208,14 @@ class CheckOptimizeParameterized(CheckOptimize):
                         [[0, -5.25060743e-01, 4.87748473e-01],
                          [0, -5.24885582e-01, 4.87530347e-01]],
                         atol=1e-14, rtol=1e-7)
+    def test_bfgs_Hk(self):
+        # Test that BFGS handles positive definite Hessian correctly.
+        # See gh-2019.
+        with pytest.raises(ValueError, match="Matrix 'Hk' must be positive definite."):
+            x0 = np.array([1.3, 0.7, 0.8, 1.9, 1.2])
+            opts = {'disp': self.disp, 'Hk_initial_estimate': np.eye(5)}
+            optimize.minimize(optimize.rosen, x0=x0, method='BFGS', args=(),
+                              options=opts)
 
     def test_bfgs_infinite(self):
         # Test corner case where -Inf is the minimum.  See gh-2019.

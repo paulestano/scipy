@@ -143,6 +143,19 @@ class OptimizeResult(dict):
 class OptimizeWarning(UserWarning):
     pass
 
+def _check_positive_definite(Hk):
+    def is_pos_def(A):
+        if np.allclose(A, A.T):
+            try:
+                np.linalg.cholesky(A)
+                return True
+            except np.linalg.LinAlgError:
+                return False
+        else:
+            return False
+    if Hk is not None:
+        if not is_pos_def(Hk):
+            raise ValueError("Matrix 'Hk' must be positive definite.")
 
 def _check_unknown_options(unknown_options):
     if unknown_options:
@@ -1261,7 +1274,7 @@ def fmin_bfgs(f, x0, fprime=None, args=(), gtol=1e-5, norm=Inf,
 def _minimize_bfgs(fun, x0, args=(), jac=None, callback=None,
                    gtol=1e-5, norm=Inf, eps=_epsilon, maxiter=None,
                    disp=False, return_all=False, finite_diff_rel_step=None,
-                   **unknown_options):
+                   Hk_initial_estimate=None, **unknown_options):
     """
     Minimization of scalar function of one or more variables using the
     BFGS algorithm.
@@ -1290,9 +1303,12 @@ def _minimize_bfgs(fun, x0, args=(), jac=None, callback=None,
         possibly adjusted to fit into the bounds. For ``method='3-point'``
         the sign of `h` is ignored. If None (default) then step is selected
         automatically.
-
+    Hk_initial_estimate : None or ndarray, optional
+        Initial inverse hessian estimate. If None (default) then an identity
+        matrix is used.
     """
     _check_unknown_options(unknown_options)
+    _check_positive_definite(Hk_initial_estimate)
     retall = return_all
 
     x0 = asarray(x0).flatten()
@@ -1313,7 +1329,7 @@ def _minimize_bfgs(fun, x0, args=(), jac=None, callback=None,
     k = 0
     N = len(x0)
     I = np.eye(N, dtype=int)
-    Hk = I
+    Hk = I if Hk_initial_estimate is None else Hk_initial_estimate 
 
     # Sets the initial step guess to dx ~ 1
     old_old_fval = old_fval + np.linalg.norm(gfk) / 2
